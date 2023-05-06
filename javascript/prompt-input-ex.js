@@ -149,7 +149,7 @@ class PromptInputAreaEx {
 
       const onKeyDown = (e) => {
         if (e.ctrlKey) {
-          if (e.code == `ArrowUp` || e.code == `ArrowBottom`) {
+          if (e.key === `ArrowUp` || e.key === `ArrowBottom`) {
             // Adjustments for standard highlighting functions
             const target = e.target;
             const text = target.value;
@@ -159,7 +159,7 @@ class PromptInputAreaEx {
             if (text.length > 1 && text[end - 1] === ",") {
               target.setSelectionRange(start, end - 1);
             }
-          } else if (e.code == `ArrowLeft` || e.code == `ArrowRight`) {
+          } else if (e.key === `ArrowLeft` || e.key === `ArrowRight`) {
             // Swap Words
             e.preventDefault();
             const target = e.target;
@@ -169,7 +169,7 @@ class PromptInputAreaEx {
               .split(",")
               .map((value, index) => ({ id: index, value: value }));
             const cursorIndex = text.slice(0, start).split(",").length - 1;
-            const swapOffset = e.code == `ArrowLeft` ? -1 : 1;
+            const swapOffset = e.key === `ArrowLeft` ? -1 : 1;
 
             var from, to;
             // When you reach the left end, go to the right end
