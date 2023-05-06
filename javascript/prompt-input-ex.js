@@ -1,34 +1,37 @@
 onUiLoaded(() => {
 
-  const promptInputAreaEx = new PromptInputAreaEx()
-  promptInputAreaEx.init();
+  const txt2imgPromptInputAreaEx = new PromptInputAreaEx("txt2img");
+  txt2imgPromptInputAreaEx.init();
+
+  const img2imgPromptInputAreaEx = new PromptInputAreaEx("img2img");
+  img2imgPromptInputAreaEx.init();
 })
 
 // Expand the prompt input fields because I don't like the low usability of the prompt input fields.
 class PromptInputAreaEx {
-  static PROMPT_ID = "txt2img_prompt";
-  static NEG_ID = "txt2img_neg_prompt";
 
-  constructor() {
+  constructor(prefix) {
+    this.PROMPT_ID = `${prefix}_prompt`;
+    this.NEG_ID = `${prefix}_neg_prompt`;
     this.selEmph = { isNeg: false, prompt: "" };
   }
 
-  static promptArea() {
+  promptArea() {
     return gradioApp()
-      .getElementById(PromptInputAreaEx.PROMPT_ID)
+      .getElementById(this.PROMPT_ID)
       .querySelector("textarea");
   }
 
-  static negArea() {
+  negArea() {
     return gradioApp()
-      .getElementById(PromptInputAreaEx.NEG_ID)
+      .getElementById(this.NEG_ID)
       .querySelector("textarea");
   }
 
-  static targetTextArea(toNegative = false) {
+  targetTextArea(toNegative = false) {
     return toNegative
-      ? PromptInputAreaEx.negArea()
-      : PromptInputAreaEx.promptArea();
+      ? this.negArea()
+      : this.promptArea();
   }
 
   init() {
@@ -42,8 +45,8 @@ class PromptInputAreaEx {
     document.head.appendChild(link);
 
     const areas = [
-      [PromptInputAreaEx.promptArea(), PromptInputAreaEx.PROMPT_ID],
-      [PromptInputAreaEx.negArea(), PromptInputAreaEx.NEG_ID],
+      [this.promptArea(), this.PROMPT_ID],
+      [this.negArea(), this.NEG_ID],
     ];
 
     areas.forEach(([textarea, id]) => {
@@ -92,9 +95,9 @@ class PromptInputAreaEx {
             className: "hwt-un-selected-area",
           });
 
-          if (target === PromptInputAreaEx.promptArea()) {
+          if (target === this.promptArea()) {
             this.selEmphPrompt = false;
-          } else if (target === PromptInputAreaEx.negArea()) {
+          } else if (target === this.negArea()) {
             this.selEmphNeg = false;
           }
         }
@@ -120,7 +123,7 @@ class PromptInputAreaEx {
         }
 
         // Special actions in the range enclosed by parentheses
-        const isNeg = target === PromptInputAreaEx.negArea();
+        const isNeg = target === this.negArea();
         const emphIndex = text.lastIndexOf(":", endIndex - 1);
         const emphEndIndex = emphIndex === -1 ? endIndex : emphIndex;
         const slicedText = text.slice(startIndex + 1, emphEndIndex);
