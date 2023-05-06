@@ -1,15 +1,13 @@
 onUiLoaded(() => {
-
   const txt2imgPromptInputAreaEx = new PromptInputAreaEx("txt2img");
   txt2imgPromptInputAreaEx.init();
 
   const img2imgPromptInputAreaEx = new PromptInputAreaEx("img2img");
   img2imgPromptInputAreaEx.init();
-})
+});
 
 // Expand the prompt input fields because I don't like the low usability of the prompt input fields.
 class PromptInputAreaEx {
-
   constructor(prefix) {
     this.PROMPT_ID = `${prefix}_prompt`;
     this.NEG_ID = `${prefix}_neg_prompt`;
@@ -17,21 +15,15 @@ class PromptInputAreaEx {
   }
 
   promptArea() {
-    return gradioApp()
-      .getElementById(this.PROMPT_ID)
-      .querySelector("textarea");
+    return gradioApp().getElementById(this.PROMPT_ID).querySelector("textarea");
   }
 
   negArea() {
-    return gradioApp()
-      .getElementById(this.NEG_ID)
-      .querySelector("textarea");
+    return gradioApp().getElementById(this.NEG_ID).querySelector("textarea");
   }
 
   targetTextArea(toNegative = false) {
-    return toNegative
-      ? this.negArea()
-      : this.promptArea();
+    return toNegative ? this.negArea() : this.promptArea();
   }
 
   init() {
@@ -195,9 +187,7 @@ class PromptInputAreaEx {
             prompts[from] = prompts[to];
             prompts[to] = temp;
 
-            const newValue = prompts
-              .map(({ id, value }) => value)
-              .join(",");
+            const newValue = prompts.map(({ id, value }) => value).join(",");
             target.value = newValue;
 
             // Decide the starting position of the cursor
@@ -235,6 +225,7 @@ class TextAreaUndoRedoProvier {
     this.undoStack = [];
     this.redoStack = [];
     this.initialValue = "";
+    this.myInput = false;
   }
 
   init() {
@@ -274,22 +265,30 @@ class TextAreaUndoRedoProvier {
         this.textarea.value = this.initialValue;
         return;
       }
+      this.myInput = true;
       const data = this.undoStack.slice(-1)[0];
       this.textarea.value = data.value;
       this.textarea.setSelectionRange(data.selectionStart, data.selectionEnd);
+      updateInput(this.textarea);
     };
 
     const redo = () => {
       if (this.redoStack.length === 0) {
         return;
       }
+      this.myInput = true;
       const data = this.redoStack.pop();
       this.textarea.value = data.value;
       this.textarea.setSelectionRange(data.selectionStart, data.selectionEnd);
       this.undoStack.push(data.undo);
+      updateInput(this.textarea);
     };
 
     this.textarea.addEventListener("input", (e) => {
+      if (this.myInput) {
+        this.myInput = false;
+        return;
+      }
       this.undoStack.push(
         new InputData(
           this.textarea.value,
