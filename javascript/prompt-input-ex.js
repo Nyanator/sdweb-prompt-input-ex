@@ -8,6 +8,11 @@ onUiLoaded(() => {
 
 // Expand the prompt input fields because I don't like the low usability of the prompt input fields.
 class PromptInputAreaEx {
+  PHRASE_SEP = ","; 
+  START_BRACKETS = ["(", "["];
+  END_BRACKETS = [")", "]"];
+  EMP_MARK = ":";
+
   constructor(prefix) {
     this.PROMPT_ID = `${prefix}_prompt`;
     this.NEG_ID = `${prefix}_neg_prompt`;
@@ -41,15 +46,19 @@ class PromptInputAreaEx {
     ];
 
     areas.forEach(([textarea, id]) => {
-      textarea.addEventListener("blur", (e) => {
-        onBlur(e, id);
-      });
-
       textarea.addEventListener("mousedown", (e) => {
-        onMouseDown(e, id);
+        if (!(e.ctrlKey || e.metaKey)) {
+          if (e.detail > 1) {
+            e.preventDefault();
+            return;
+          }
+        }
       });
 
       textarea.addEventListener("dblclick", (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          return;
+        }
         e.preventDefault();
         onDblCilck(e.target, e.target.selectionStart);
       });
@@ -61,61 +70,39 @@ class PromptInputAreaEx {
       const provider = new TextAreaUndoRedoProvier(textarea);
       provider.init();
 
-      const onBlur = (e, id) => {
-        // Retains cursor display after focus is lost
-        const target = e.target;
-        const start = target.selectionStart;
-        const end = target.selectionEnd;
-        if (start !== end) {
-          if (e.relatedTarget !== null) {
-            $(`#${id} textarea`).highlightWithinTextarea({
-              highlight: [start, end],
-              className: "hwt-selected-area",
-            });
-          }
-        }
-      };
-
-      const onMouseDown = (e, id) => {
-        if (e.detail > 1) {
-          e.preventDefault();
-          return;
-        }
-
-        // Clear the cursor position left last time
-        const target = e.target;
-        $(`#${id} textarea`).highlightWithinTextarea({
-          highlight: [0, target.value.length],
-          className: "hwt-un-selected-area",
-        });
-      };
-
-      const onDblCilck = (target, selectionStart) => {
-        // Extend the selection with comma-separated units as words
+      const onDblCilck = (target, selectionStart, isShiftSpace = false) => {
+        // Extend the selection with comma-separated units as phrase
         const text = target.value;
         const start = selectionStart;
-        const lastIndex = text.lastIndexOf(",", start - 1);
-        const startIndex = lastIndex === -1 ? 0 : lastIndex + 1;
-        const nextIndex = text.indexOf(",", start);
-        const endIndex = (nextIndex === -1 ? text.length - 1 : nextIndex) + 1;
 
-        const trimedWord = text
-          .slice(startIndex, endIndex)
-          .replace(",", "")
-          .trim();
-        if (
-          !(
-            (trimedWord[0] === "(" && trimedWord.slice(-1)[0] === ")") ||
-            (trimedWord[0] === "[" && trimedWord.slice(-1)[0] === "]")
-          ) ||
-          start === 0
-        ) {
-          target.setSelectionRange(startIndex, endIndex);
-          return;
+        // Calculate the start and end position of a phrase from the selected position
+        const seaarcPhrasePosition = (text, selectionStart, end)=> {
+          let normalisedString = text;
+          const brackets = this.START_BRACKETS.map(((value, index) => [value, this.END_BRACKETS[index]]));
+          for (const bracket of brackets) {
+            const sBracket = `\\${bracket[0]}`;
+            const eBracket = `\\${bracket[1]}`;
+            const regex = new RegExp(sBracket + '[^' + eBracket + ']*' + eBracket, 'g');
+            normalisedString = normalisedString.replace(regex, (match) => " ".repeat(match.length));
+          }
+
+          if (end) {
+            let result = normalisedString.indexOf(this.PHRASE_SEP, selectionStart);
+            if (result !== -1 && text[result] === this.PHRASE_SEP) {
+              result++;
+            }
+            return result === -1 ? text.length : result;
+          } else {
+            if (selectionStart === 0) {
+              return 0;
+            }
+            const result = normalisedString.lastIndexOf(this.PHRASE_SEP, selectionStart - 1);
+            return result + 1;
+          }
         }
 
-        // Special actions in the range enclosed by brackets
-        function nearestIndexOf(str, isLast, position, ...searchStrings) {
+        // Calculate the position of the nearest symbol from the selected position
+        const nearestIndexOf = (str, isLast, position, ...searchStrings) => {
           const indexes = [];
           for (const searchString of searchStrings) {
             indexes.push(
@@ -130,17 +117,54 @@ class PromptInputAreaEx {
             : Math.min(...filterdIndexes);
         }
 
-        const wordStartIndex = nearestIndexOf(text, true, start - 1, "(", "[", ":");
-        if (wordStartIndex === -Infinity || startIndex > wordStartIndex) {
-          target.setSelectionRange(startIndex, endIndex);
-          return;
+        // Check selection position
+        if (isShiftSpace === false) {
+          const phraseStart = seaarcPhrasePosition(text, start, false);
+          const phraseEnd = seaarcPhrasePosition(text, start, true);
+          const startBracketsIndex = nearestIndexOf(text, false, phraseStart, ...this.START_BRACKETS);
+          const endBracketsIndex = nearestIndexOf(text, true, phraseEnd, ...this.END_BRACKETS);
+        
+          // Select the entire phrase when outside the parentheses are selected
+          if (startBracketsIndex >= start || start > endBracketsIndex) {
+            target.setSelectionRange(phraseStart, phraseEnd);
+            return;
+          }
         }
-        const wordEndIndex = nearestIndexOf(text, false, start, ":", "]", ")");
-        if (wordEndIndex === Infinity || wordEndIndex > endIndex) {
-          target.setSelectionRange(startIndex, endIndex);
-          return;
+
+        // The nearest delimiter is used as the start position.
+        const startWords = [this.EMP_MARK, this.PHRASE_SEP];
+        startWords.push(...this.START_BRACKETS);
+        if (isShiftSpace) {
+          startWords.push(" ");
         }
-        target.setSelectionRange(wordStartIndex + 1, wordEndIndex);
+        let wordStartIndex = nearestIndexOf(text, true, start - 1, ...startWords);
+        if (wordStartIndex === -Infinity) {
+          wordStartIndex = 0;
+        }
+        // Correct the start of the selection position until it is no longer a delimiter
+        if (startWords.includes(text[wordStartIndex])) {
+          const offset = Array.from(text.slice(wordStartIndex)).findIndex(
+            (char) => startWords.includes(char) === false
+          );
+          if (offset !== -1) {
+            wordStartIndex += offset;
+          }
+        }
+
+        // The nearest delimiter is the end position.
+        const endWords = [this.PHRASE_SEP, this.EMP_MARK];
+        endWords.push(...this.END_BRACKETS);
+        if (isShiftSpace) {
+          endWords.push(" ");
+        }
+        let wordEndIndex = nearestIndexOf(text, false, start, ...endWords);
+        if (wordEndIndex === Infinity) {
+          wordEndIndex = text.length;
+        }
+        if (text[wordEndIndex] === this.PHRASE_SEP) {
+          wordEndIndex++;
+        }
+        target.setSelectionRange(wordStartIndex, wordEndIndex);
       };
 
       const onKeyDown = (e) => {
@@ -156,19 +180,21 @@ class PromptInputAreaEx {
           const start = target.selectionStart;
           const end = target.selectionEnd;
 
-          if (text.length > 1 && text[end - 1] === ",") {
+          if (text.length > 1 && text[end - 1] === this.PHRASE_SEP) {
             target.setSelectionRange(start, end - 1);
           }
         } else if (e.key === `ArrowLeft` || e.key === `ArrowRight`) {
           // Swap Words
+          const isShiftSpace = e.shiftKey;
+          const delimiter = !isShiftSpace ? this.PHRASE_SEP : " ";
           e.preventDefault();
           const target = e.target;
           const text = target.value;
           const start = target.selectionStart;
           const prompts = text
-            .split(",")
+            .split(delimiter)
             .map((value, index) => ({ id: index, value: value }));
-          const cursorIndex = text.slice(0, start).split(",").length - 1;
+          const cursorIndex = text.slice(0, start).split(delimiter).length - 1;
           const swapOffset = e.key === `ArrowLeft` ? -1 : 1;
 
           var from, to;
@@ -187,18 +213,28 @@ class PromptInputAreaEx {
           prompts[from] = prompts[to];
           prompts[to] = temp;
 
-          const newValue = prompts.map(({ id, value }) => value).join(",");
+          const newValue = prompts
+            .map(({ id, value }) => value)
+            .join(delimiter);
           target.value = newValue;
 
           // Decide the starting position of the cursor
           const findIndex = prompts.findIndex(
             ({ id, value }) => id === prompts[to].id
           );
-          const startIndex = newValue
-            .split(",")
+          let startIndex = newValue
+            .split(delimiter)
             .slice(0, findIndex)
             .reduce((acc, value) => acc + value.length + 1, 0);
-          onDblCilck(target, startIndex);
+          
+          if (isShiftSpace === false) {
+            const nextBracket = Array.from(newValue.slice(startIndex)).findIndex((char) => this.START_BRACKETS.includes(char));
+            const nextSeparater = Array.from(newValue.slice(startIndex)).findIndex((char) => this.PHRASE_SEP.includes(char));
+            if (nextBracket !== -1 && (nextSeparater > nextBracket || nextSeparater === -1)) {
+              startIndex += nextBracket + 1;
+            }
+          }
+          onDblCilck(target, startIndex, isShiftSpace);
           updateInput(target);
         }
       };
