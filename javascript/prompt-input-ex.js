@@ -11,7 +11,6 @@ class PromptInputAreaEx {
   constructor(prefix) {
     this.PROMPT_ID = `${prefix}_prompt`;
     this.NEG_ID = `${prefix}_neg_prompt`;
-    this.selEmph = { isNeg: false, prompt: "" };
   }
 
   promptArea() {
@@ -51,7 +50,8 @@ class PromptInputAreaEx {
       });
 
       textarea.addEventListener("dblclick", (e) => {
-        onDblCilck(e.target, e.target.selectionStart, false);
+        e.preventDefault();
+        onDblCilck(e.target, e.target.selectionStart);
       });
 
       textarea.addEventListener("keydown", (e) => {
@@ -79,23 +79,18 @@ class PromptInputAreaEx {
       const onMouseDown = (e, id) => {
         if (e.detail > 1) {
           e.preventDefault();
-        } else {
-          // Clear the cursor position left last time
-          const target = e.target;
-          $(`#${id} textarea`).highlightWithinTextarea({
-            highlight: [0, target.value.length],
-            className: "hwt-un-selected-area",
-          });
-
-          if (target === this.promptArea()) {
-            this.selEmphPrompt = false;
-          } else if (target === this.negArea()) {
-            this.selEmphNeg = false;
-          }
+          return;
         }
+
+        // Clear the cursor position left last time
+        const target = e.target;
+        $(`#${id} textarea`).highlightWithinTextarea({
+          highlight: [0, target.value.length],
+          className: "hwt-un-selected-area",
+        });
       };
 
-      const onDblCilck = (target, selectionStart, emphOnly) => {
+      const onDblCilck = (target, selectionStart) => {
         // Extend the selection with comma-separated units as words
         const text = target.value;
         const start = selectionStart;
@@ -104,103 +99,107 @@ class PromptInputAreaEx {
         const nextIndex = text.indexOf(",", start);
         const endIndex = (nextIndex === -1 ? text.length - 1 : nextIndex) + 1;
 
+        const trimedWord = text
+          .slice(startIndex, endIndex)
+          .replace(",", "")
+          .trim();
         if (
-          text
-            .slice(startIndex, endIndex)
-            .trim()
-            .match(/\(.*:.*\)/) === null
+          !(
+            (trimedWord[0] === "(" && trimedWord.slice(-1)[0] === ")") ||
+            (trimedWord[0] === "[" && trimedWord.slice(-1)[0] === "]")
+          ) ||
+          start === 0
         ) {
           target.setSelectionRange(startIndex, endIndex);
           return;
         }
 
-        // Special actions in the range enclosed by parentheses
-        const isNeg = target === this.negArea();
-        const emphIndex = text.lastIndexOf(":", endIndex - 1);
-        const emphEndIndex = emphIndex === -1 ? endIndex : emphIndex;
-        const slicedText = text.slice(startIndex + 1, emphEndIndex);
-
-        // Double-clicking on the numerical part.
-        const eParenthesesIndex = text.indexOf(")", emphEndIndex);
-        if (
-          emphOnly === false &&
-          start > emphIndex &&
-          eParenthesesIndex >= start
-        ) {
-          target.setSelectionRange(emphIndex + 1, eParenthesesIndex);
-          // Select the entire word, including parentheses
-        } else if (
-          emphOnly === false &&
-          this.selEmph.prompt.length > 0 &&
-          slicedText === this.selEmph.prompt &&
-          isNeg === this.selEmph.isNeg
-        ) {
-          target.setSelectionRange(startIndex, endIndex);
-          this.selEmph.prompt = "";
-          this.selEmph.isNeg = isNeg;
-          // Select words to be emphasized
-        } else {
-          const sParenthesesIndex = text.indexOf("(", startIndex);
-          target.setSelectionRange(sParenthesesIndex + 1, emphEndIndex);
-          this.selEmph.prompt = slicedText;
-          this.selEmph.isNeg = isNeg;
+        // Special actions in the range enclosed by brackets
+        function nearestIndexOf(str, isLast, position, ...searchStrings) {
+          const indexes = [];
+          for (const searchString of searchStrings) {
+            indexes.push(
+              isLast
+                ? str.lastIndexOf(searchString, position)
+                : str.indexOf(searchString, position)
+            );
+          }
+          const filterdIndexes = indexes.filter((index) => index !== -1);
+          return isLast
+            ? Math.max(...filterdIndexes)
+            : Math.min(...filterdIndexes);
         }
+
+        const wordStartIndex = nearestIndexOf(text, true, start - 1, "(", "[", ":");
+        if (wordStartIndex === -Infinity || startIndex > wordStartIndex) {
+          target.setSelectionRange(startIndex, endIndex);
+          return;
+        }
+        const wordEndIndex = nearestIndexOf(text, false, start, ":", "]", ")");
+        if (wordEndIndex === Infinity || wordEndIndex > endIndex) {
+          target.setSelectionRange(startIndex, endIndex);
+          return;
+        }
+        target.setSelectionRange(wordStartIndex + 1, wordEndIndex);
       };
 
       const onKeyDown = (e) => {
-        if (e.ctrlKey) {
-          if (e.key === `ArrowUp` || e.key === `ArrowBottom`) {
-            // Adjustments for standard highlighting functions
-            const target = e.target;
-            const text = target.value;
-            const start = target.selectionStart;
-            const end = target.selectionEnd;
+        if (!(e.ctrlKey || e.metaKey)) {
+          return;
+        }
 
-            if (text.length > 1 && text[end - 1] === ",") {
-              target.setSelectionRange(start, end - 1);
-            }
-          } else if (e.key === `ArrowLeft` || e.key === `ArrowRight`) {
-            // Swap Words
-            e.preventDefault();
-            const target = e.target;
-            const text = target.value;
-            const start = target.selectionStart;
-            const prompts = text
-              .split(",")
-              .map((value, index) => ({ id: index, value: value }));
-            const cursorIndex = text.slice(0, start).split(",").length - 1;
-            const swapOffset = e.key === `ArrowLeft` ? -1 : 1;
+        if (e.key === `ArrowUp` || e.key === `ArrowBottom`) {
+          // Adjustments for standard highlighting functions
+          e.preventDefault();
+          const target = e.target;
+          const text = target.value;
+          const start = target.selectionStart;
+          const end = target.selectionEnd;
 
-            var from, to;
-            // When you reach the left end, go to the right end
-            if (0 > swapOffset && 0 >= cursorIndex) {
-              (from = 0), (to = prompts.length - 1);
-              // When you reach the right end, go to the left end
-            } else if (swapOffset > 0 && cursorIndex >= prompts.length - 1) {
-              (from = prompts.length - 1), (to = 0);
-            } else {
-              (from = cursorIndex), (to = cursorIndex + swapOffset);
-            }
-
-            // Swap
-            const temp = prompts[from];
-            prompts[from] = prompts[to];
-            prompts[to] = temp;
-
-            const newValue = prompts.map(({ id, value }) => value).join(",");
-            target.value = newValue;
-
-            // Decide the starting position of the cursor
-            const findIndex = prompts.findIndex(
-              ({ id, value }) => id === prompts[to].id
-            );
-            const startIndex = newValue
-              .split(",")
-              .slice(0, findIndex)
-              .reduce((acc, value) => acc + value.length + 1, 0);
-            onDblCilck(target, startIndex, true);
-            updateInput(target);
+          if (text.length > 1 && text[end - 1] === ",") {
+            target.setSelectionRange(start, end - 1);
           }
+        } else if (e.key === `ArrowLeft` || e.key === `ArrowRight`) {
+          // Swap Words
+          e.preventDefault();
+          const target = e.target;
+          const text = target.value;
+          const start = target.selectionStart;
+          const prompts = text
+            .split(",")
+            .map((value, index) => ({ id: index, value: value }));
+          const cursorIndex = text.slice(0, start).split(",").length - 1;
+          const swapOffset = e.key === `ArrowLeft` ? -1 : 1;
+
+          var from, to;
+          // When you reach the left end, go to the right end
+          if (0 > swapOffset && 0 >= cursorIndex) {
+            (from = 0), (to = prompts.length - 1);
+            // When you reach the right end, go to the left end
+          } else if (swapOffset > 0 && cursorIndex >= prompts.length - 1) {
+            (from = prompts.length - 1), (to = 0);
+          } else {
+            (from = cursorIndex), (to = cursorIndex + swapOffset);
+          }
+
+          // Swap
+          const temp = prompts[from];
+          prompts[from] = prompts[to];
+          prompts[to] = temp;
+
+          const newValue = prompts.map(({ id, value }) => value).join(",");
+          target.value = newValue;
+
+          // Decide the starting position of the cursor
+          const findIndex = prompts.findIndex(
+            ({ id, value }) => id === prompts[to].id
+          );
+          const startIndex = newValue
+            .split(",")
+            .slice(0, findIndex)
+            .reduce((acc, value) => acc + value.length + 1, 0);
+          onDblCilck(target, startIndex);
+          updateInput(target);
         }
       };
     });
@@ -231,7 +230,7 @@ class TextAreaUndoRedoProvier {
   init() {
     this.initialValue = this.textarea.value;
     this.textarea.addEventListener("keydown", (e) => {
-      if (!e.ctrlKey) {
+      if (!(e.ctrlKey || e.metaKey)) {
         return;
       }
 
