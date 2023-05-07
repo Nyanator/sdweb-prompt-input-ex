@@ -31,15 +31,6 @@ class PromptInputAreaEx {
   }
 
   init() {
-    const script = document.createElement(`script`);
-    script.src = `/file=extensions/sdweb-prompt-input-ex/javascript/jquery.highlight-within-textarea.js`;
-    document.head.appendChild(script);
-
-    const link = document.createElement(`link`);
-    link.rel = "stylesheet";
-    link.href = `/file=extensions/sdweb-prompt-input-ex/css/jquery.highlight-within-textarea.css`;
-    document.head.appendChild(link);
-
     const areas = [
       [this.promptArea(), this.PROMPT_ID],
       [this.negArea(), this.NEG_ID],
@@ -228,8 +219,9 @@ class PromptInputAreaEx {
             .reduce((acc, value) => acc + value.length + 1, 0);
           
           if (isShiftSpace === false) {
-            const nextBracket = Array.from(newValue.slice(startIndex)).findIndex((char) => this.START_BRACKETS.includes(char));
-            const nextSeparater = Array.from(newValue.slice(startIndex)).findIndex((char) => this.PHRASE_SEP.includes(char));
+            const checkarr = Array.from(newValue.slice(startIndex));
+            const nextBracket = checkarr.findIndex((char) => this.START_BRACKETS.includes(char));
+            const nextSeparater = checkarr.findIndex((char) => this.PHRASE_SEP.includes(char));
             if (nextBracket !== -1 && (nextSeparater > nextBracket || nextSeparater === -1)) {
               startIndex += nextBracket + 1;
             }
