@@ -145,10 +145,10 @@ class PromptInputAreaEx {
     static adjustSelection(prompt, selectionStart, selectionEnd) {
         const start = PromptInputAreaEx.adjustSelectionStart(prompt, selectionStart);
         let end = selectionEnd;
-        while (PromptInputAreaEx.SELIGN_CHAR.includes(prompt[end])) {
-            if (prompt[end] === PromptParser.EMPHA_BRACKETS[1]) {
+        while (PromptInputAreaEx.SELIGN_CHAR.includes(prompt[end - 1])) {
+            if (prompt[end - 1] === PromptParser.EMPHA_BRACKETS[1]) {
                 const markIndex = prompt.lastIndexOf(PromptParser.EMPHA_MARK, end);
-                const perhapsNumPart = prompt.slice(markIndex + 1, end).trim();
+                const perhapsNumPart = prompt.slice(markIndex + 1, end - 1).trim();
                 if (TextSplitter.checkNumeric(perhapsNumPart)) {
                     end = markIndex;
                     break;
