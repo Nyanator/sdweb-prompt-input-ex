@@ -45,7 +45,7 @@ class PromptParser {
             return [phrase, ...remainingPhrases];
         };
         const phrases = splitIntoPhrases(this.prompt, 0);
-        return TextSplitter.textChunksToObjectChunks(phrases);
+        return Chunk.textChunksToObjectChunks(phrases);
     }
     generateRemovedEmphasisChunks(originalIndex) {
         const chunkIndex = TextSplitter.getChunkIndexFromOriginalIndex(this.chunks, originalIndex);

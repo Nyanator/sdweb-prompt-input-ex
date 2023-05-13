@@ -11,7 +11,7 @@ class TextSplitter {
         const textChunks = text
             .split(pattern)
             .filter((chunk) => chunk !== undefined && chunk !== "");
-        return TextSplitter.textChunksToObjectChunks(textChunks);
+        return Chunk.textChunksToObjectChunks(textChunks);
     }
     static getChunkIndexFromOriginalIndex(chunks, originalIndex) {
         const chunkIndex = chunks.findIndex((chunk) => originalIndex >= chunk.start && originalIndex < chunk.end);
@@ -62,21 +62,12 @@ class TextSplitter {
         }
         return { start: -1, end: -1 };
     }
-    static textChunksToObjectChunks(textChunks) {
-        let start = 0;
-        const chunks = [];
-        for (const textChunk of textChunks) {
-            chunks.push(new Chunk(textChunk, start));
-            start += textChunk.length;
-        }
-        return chunks;
-    }
     static escRe(str) {
         const escapedStr = str.replace(new RegExp("[-/\\\\^$*+?.()|[\\]{}]", "g"), "\\$&");
         return escapedStr;
     }
     static checkNumeric(str) {
-        return /^-?\d+(\.\d+)?$/.test(str);
+        return new RegExp("^-?\\d+(\\.\\d+)?$").test(str);
     }
 }
 TextSplitter.SHIFT_LEFT = "left";
@@ -87,6 +78,16 @@ class Chunk {
         this.start = start;
         this.end = start + this.text.length;
     }
+    static textChunksToObjectChunks(textChunks) {
+        let start = 0;
+        const chunks = [];
+        for (const textChunk of textChunks) {
+            chunks.push(new Chunk(textChunk, start));
+            start += textChunk.length;
+        }
+        chunks.slice(-1)[0].end++;
+        return chunks;
+    }
     static recalcChunks(chunks) {
         let start = 0;
         for (const chunk of chunks) {
@@ -94,5 +95,6 @@ class Chunk {
             chunk.end = chunk.start + chunk.text.length;
             start = chunk.end;
         }
+        chunks.slice(-1)[0].end++;
     }
 }

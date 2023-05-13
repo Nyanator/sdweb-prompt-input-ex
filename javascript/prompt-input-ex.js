@@ -66,8 +66,6 @@ class PromptInputAreaEx {
                     return;
                 }
             });
-            const provider = new TextAreaUndoRedoProvider(textarea);
-            provider.init();
         });
     }
     expandSelectionToField(e) {
@@ -113,7 +111,8 @@ class PromptInputAreaEx {
     deleteEmphasis(e) {
         const target = e.target;
         this.promptParser.parse(target.value);
-        const result = this.promptParser.generateRemovedEmphasisChunks(target.selectionStart);
+        const selectionStart = PromptInputAreaEx.adjustSelectionStart(target.value, target.selectionStart);
+        const result = this.promptParser.generateRemovedEmphasisChunks(selectionStart);
         if (result.remainedChunk === null) {
             return;
         }
@@ -163,6 +162,14 @@ PromptInputAreaEx.SELIGN_CHAR = PromptParser.CHUNK_SEP;
 onUiLoaded(() => {
     const txt2imgPromptInputAreaEx = new PromptInputAreaEx("txt2img", gradioApp());
     txt2imgPromptInputAreaEx.init();
+    const txt2imgPromptProvider = new TextAreaUndoRedoProvider(txt2imgPromptInputAreaEx.promptArea());
+    txt2imgPromptProvider.init();
+    const txt2imgNegativeProvider = new TextAreaUndoRedoProvider(txt2imgPromptInputAreaEx.negativeArea());
+    txt2imgNegativeProvider.init();
     const img2imgPromptInputAreaEx = new PromptInputAreaEx("img2img", gradioApp());
     img2imgPromptInputAreaEx.init();
+    const img2imgPromptProvider = new TextAreaUndoRedoProvider(img2imgPromptInputAreaEx.promptArea());
+    img2imgPromptProvider.init();
+    const img2imgNegativeProvider = new TextAreaUndoRedoProvider(img2imgPromptInputAreaEx.negativeArea());
+    img2imgNegativeProvider.init();
 });
