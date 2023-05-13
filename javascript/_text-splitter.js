@@ -15,6 +15,9 @@ class TextSplitter {
     }
     static getChunkIndexFromOriginalIndex(chunks, originalIndex) {
         const chunkIndex = chunks.findIndex((chunk) => originalIndex >= chunk.start && originalIndex < chunk.end);
+        if (chunks[chunks.length - 1].end === originalIndex) {
+            return chunks.length - 1;
+        }
         return chunkIndex;
     }
     static generateShiftedChunks(chunks, chunkIndex, shiftAmount, direction, separators) {
@@ -85,7 +88,6 @@ class Chunk {
             chunks.push(new Chunk(textChunk, start));
             start += textChunk.length;
         }
-        chunks.slice(-1)[0].end++;
         return chunks;
     }
     static recalcChunks(chunks) {
@@ -95,6 +97,5 @@ class Chunk {
             chunk.end = chunk.start + chunk.text.length;
             start = chunk.end;
         }
-        chunks.slice(-1)[0].end++;
     }
 }
