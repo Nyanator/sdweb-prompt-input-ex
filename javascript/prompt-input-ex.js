@@ -4,6 +4,7 @@ class PromptInputAreaEx {
         this.PROMPT_ID = `${prefix}_prompt`;
         this.NEGATIVE_ID = `${prefix}_neg_prompt`;
         this.promptParser = new PromptParser("");
+        this.shiftKind = "";
     }
     promptArea() {
         return this.gradioApp
@@ -31,13 +32,16 @@ class PromptInputAreaEx {
             });
             textarea.addEventListener("dblclick", (e) => {
                 if (!(e.ctrlKey || e.metaKey)) {
+                    this.shiftKind = PromptParser.SHIFT_CHUNKS;
                     return;
                 }
                 e.preventDefault();
                 if (!e.altKey) {
+                    this.shiftKind = PromptParser.SHIFT_FIELDS;
                     this.expandSelectionToField(e);
                 }
                 else {
+                    this.shiftKind = PromptParser.SHIFT_PHRASES;
                     this.expandSelectionToPhrase(e);
                 }
             });
@@ -88,31 +92,21 @@ class PromptInputAreaEx {
         target.setSelectionRange(ajustedSelection.start, ajustedSelection.end);
     }
     shiftChunks(e) {
+        if (this.shiftKind.trim() === "") {
+            return;
+        }
         const target = e.target;
         this.promptParser.parse(target.value);
-        const selectionStart = PromptInputAreaEx.adjustSelectionStart(target.value, target.selectionStart);
         const shiftDirection = e.key === "ArrowLeft"
             ? TextSplitter.SHIFT_LEFT
             : TextSplitter.SHIFT_RIGHT;
-        const selectedPhrase = this.promptParser.getSelectedPhrase(selectionStart);
-        const selectedField = this.promptParser.getSelectedField(selectionStart);
-        let shiftKind = PromptParser.SHIFT_CHUNKS;
-        if (selectedPhrase.start === target.selectionStart &&
-            selectedPhrase.end === target.selectionEnd) {
-            shiftKind = PromptParser.SHIFT_PHRASES;
-        }
-        if (selectedField.start === target.selectionStart &&
-            selectedField.end === target.selectionEnd) {
-            shiftKind = PromptParser.SHIFT_FIELDS;
-        }
-        const result = this.promptParser.generateShiftedChunks(selectionStart, 1, shiftDirection, shiftKind);
+        const result = this.promptParser.generateShiftedChunks(target.selectionStart, 1, shiftDirection, this.shiftKind);
         this.updateTextarea(target, result.newChunks.map((chunk) => chunk.text).join(""), result.movedChunk.start, result.movedChunk.end, true);
     }
     deleteEmphasis(e) {
         const target = e.target;
         this.promptParser.parse(target.value);
-        const selectionStart = PromptInputAreaEx.adjustSelectionStart(target.value, target.selectionStart);
-        const result = this.promptParser.generateRemovedEmphasisChunks(selectionStart);
+        const result = this.promptParser.generateRemovedEmphasisChunks(target.selectionStart);
         if (result.remainedChunk === null) {
             return;
         }

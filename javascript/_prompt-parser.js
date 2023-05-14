@@ -12,7 +12,7 @@ class PromptParser {
         return TextSplitter.generateChunksWithSeparators(this.prompt, PromptParser.CHUNK_SEP);
     }
     generateFields() {
-        const fields = TextSplitter.generateChunksWithSeparators(this.prompt, PromptParser.CHUNK_SEP.filter((sep) => sep.trim() !== "" && sep !== PromptParser.EMPHA_MARK));
+        const fields = TextSplitter.generateChunksWithSeparators(this.prompt, PromptParser.CHUNK_SEP.filter((sep) => sep.trim() !== ""));
         return fields;
     }
     generatePhrases() {
