@@ -102,9 +102,6 @@ class PromptParser {
     }
     cleanPrompt() {
         let cleanedPrompt = this.prompt
-            .replace(/\t/g, "    ")
-            .replace(/\u3000/g, " ")
-            .replace(/\r/g, "")
             .replace(new RegExp(`^([\\s${TextSplitter.escRe(PromptParser.PHRASE_SEP)}]+)|([\\s${TextSplitter.escRe(PromptParser.PHRASE_SEP)}]+)$`, "g"), "")
             .trim();
         const phrases = Array.from(cleanedPrompt);
